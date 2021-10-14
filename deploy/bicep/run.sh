@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e
+set -x
+
+while getopts ":p:s:g:l:" arg; do
+    case $arg in
+        p) ResourcePrefix=$OPTARG;;
+        s) ResourcePostfix=$OPTARG;;
+        g) ResourceGroupName=$OPTARG;;
+        l) ResourceGroupLocation=$OPTARG;;
+    esac
+done
+
+usage() {
+    script_name=`basename $0`
+    echo "Please use ./$script_name -p resourcePrefix -s resourcePostfix -g resourceGroupName -l resourceGroupLocation"
+}
+
+if [ -z "$ResourcePrefix" ]; then
+    usage
+    exit 1
+fi
+
+if [ -z "$ResourcePostfix" ]; then
+    usage
+    exit 1
+fi
+
+if [ -z "$ResourceGroupName" ]; then
+    usage
+    exit 1
+fi
+
+if [ -z "$ResourceGroupLocation" ]; then
+    usage
+    exit 1
+fi
+
+resourcePrefix=$ResourcePrefix
+resourcePostfix=$ResourcePostfix
+resourceGroupName=$ResourceGroupName
+resourceGroupLocation=$ResourceGroupLocation
+currentUserObjectId=$(az ad signed-in-user show --query objectId --output tsv)
+versionTag=$(date | md5sum | awk '{print $1}')
+
+az group create --name $resourceGroupName --location $resourceGroupLocation
+az deployment group create --template-file ./main.bicep --resource-group $resourceGroupName --parameters "resourcePrefix=${resourcePrefix}" --parameters "resourcePostfix=${resourcePostfix}" --parameters "resourceGroupLocation=${resourceGroupLocation}"
