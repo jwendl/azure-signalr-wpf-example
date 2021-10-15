@@ -49,8 +49,6 @@ resourceGroupName=$ResourceGroupName
 resourceGroupLocation=$ResourceGroupLocation
 validAudience=$ValidAudience
 clientId=$(az ad app list --display-name "${resourcePrefix}visualassist${resourcePostfix}" --query "[0].appId" --output tsv)
-tenantId=$(az account show --query tenantId --output tsv)
-issuer="https://sts.windows.net/${tenantId}"
 
 az group create --name $resourceGroupName --location $resourceGroupLocation
-az deployment group create --template-file ./main.bicep --resource-group $resourceGroupName --parameters "resourcePrefix=${resourcePrefix}" --parameters "resourcePostfix=${resourcePostfix}" --parameters "resourceGroupLocation=${resourceGroupLocation}" --parameters "clientId=${clientId}" --parameters "allowedAudiences=[ '${validAudience}' ]" --parameters "issuer=${issuer}"
+az deployment group create --template-file ./main.bicep --resource-group $resourceGroupName --parameters "resourcePrefix=${resourcePrefix}" --parameters "resourcePostfix=${resourcePostfix}" --parameters "resourceGroupLocation=${resourceGroupLocation}" --parameters "clientId=${clientId}" --parameters "allowedAudiences=[ '${validAudience}' ]"

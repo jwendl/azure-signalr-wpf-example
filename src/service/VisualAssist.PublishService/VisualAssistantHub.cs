@@ -3,8 +3,9 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Extensions.SignalRService;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
+using System;
 using System.Threading.Tasks;
+using VisualAssist.PublishService.Models;
 
 namespace VisualAssist.PublishService
 {
@@ -17,30 +18,23 @@ namespace VisualAssist.PublishService
             return signalRConnectionInfo;
         }
 
-        [FunctionName(nameof(AddToGroupAsync))]
-        public async Task AddToGroupAsync([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "add/{groupName}")] HttpRequest req, string groupName, ClaimsPrincipal claimsPrincipal, [SignalR(HubName = "visualAssist")] IAsyncCollector<SignalRGroupAction> signalRGroupActions)
+        [FunctionName(nameof(SendToGroup))]
+        public async Task SendToGroup([SignalRTrigger] InvocationContext invocationContext, string groupName, string message)
         {
-            var userIdClaim = claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier);
-            await signalRGroupActions.AddAsync(
-                new SignalRGroupAction
+            await Clients.Group(groupName).SendCoreAsync("sendMessage", new[] {
+                new ScreenAssistMessage()
                 {
-                    UserId = userIdClaim.Value,
-                    GroupName = groupName,
-                    Action = GroupAction.Add
-                });
+                    SentBy = invocationContext.UserId,
+                    MessageDateTime = DateTime.UtcNow,
+                    Message = message,
+                }
+            });
         }
 
-        [FunctionName(nameof(RemoveFromGroupAsync))]
-        public async Task RemoveFromGroupAsync([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "remove/{groupName}")] HttpRequest req, string groupName, ClaimsPrincipal claimsPrincipal, [SignalR(HubName = "visualAssist")] IAsyncCollector<SignalRGroupAction> signalRGroupActions)
+        [FunctionName(nameof(JoinUserToGroup))]
+        public async Task JoinUserToGroup([SignalRTrigger] InvocationContext invocationContext, string userName, string groupName)
         {
-            var userIdClaim = claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier);
-            await signalRGroupActions.AddAsync(
-                new SignalRGroupAction
-                {
-                    UserId = userIdClaim.Value,
-                    GroupName = groupName,
-                    Action = GroupAction.Remove
-                });
+            await UserGroups.AddToGroupAsync(userName, groupName);
         }
 
         [FunctionName(nameof(LogMessageAsync))]

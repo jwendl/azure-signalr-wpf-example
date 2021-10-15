@@ -2,7 +2,6 @@ param resourcePrefix string
 param resourcePostfix string
 
 param clientId string
-param issuer string
 param allowedAudiences array
 
 param resourceGroupLocation string = resourceGroup().location
@@ -10,6 +9,18 @@ param resourceGroupLocation string = resourceGroup().location
 resource userManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: '${toLower(resourcePrefix)}umi${toLower(resourcePostfix)}'
   location: resourceGroupLocation
+}
+
+resource keyVault 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
+  name: '${toLower(resourcePrefix)}akv${toLower(resourcePostfix)}'
+  location: resourceGroupLocation
+  properties: {
+    sku: {
+      name: 'standard'
+      family: 'A'
+    }
+    tenantId: environment().authentication.tenant
+  }
 }
 
 resource publishService 'Microsoft.SignalRService/signalR@2021-06-01-preview' = {
@@ -24,6 +35,15 @@ resource publishService 'Microsoft.SignalRService/signalR@2021-06-01-preview' = 
     type: 'UserAssigned'
     userAssignedIdentities: {
       '${userManagedIdentity.id}': {}
+    }
+  }
+  properties: {
+    upstream: {
+      templates: [
+        {
+          urlTemplate: 'https://${resourcePrefix}afa${resourcePostfix}.azurewebsites.net/runtime/webhooks/signalr?code={@Microsoft.KeyVault(SecretUri=https://${resourcePrefix}akv${resourcePostfix}.vault.azure.net/secrets/signalrkey/)}'
+        }
+      ]
     }
   }
 }
@@ -77,7 +97,7 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
         }
         {
           name: 'AzureSignalRConnectionString'
-          value: 'Endpoint=https://${publishService.properties.hostName}.service.signalr.net;AuthType=aad;ClientId=${userManagedIdentity.properties.clientId};Version=1.0;'
+          value: 'Endpoint=https://${publishService.properties.hostName};AuthType=aad;ClientId=${userManagedIdentity.properties.clientId};Version=1.0;'
         }
         {
           'name': 'FUNCTIONS_EXTENSION_VERSION'
@@ -113,13 +133,38 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
     }
   }
   resource functionAuthSettings 'config' = {
-    name: 'authsettings'
+    name: 'authsettingsV2'
     properties: {
-      allowedAudiences: allowedAudiences
-      clientId: clientId
-      issuer: issuer
-      unauthenticatedClientAction: 'RedirectToLoginPage'
-      validateIssuer: true
+      globalValidation: {
+        properties: {
+          requireAuthentication: true
+        }
+      }
+      httpSettings: {
+        properties: {
+          requireHttps: true
+        }
+      }
+      identityProviders: {
+        properties: {
+          azureActiveDirectory: {
+            properties: {
+              enabled: true
+              registration: {
+                properties: {
+                  openIdIssuer: '${environment().authentication.loginEndpoint}/v2.0'
+                  clientId: clientId
+                }
+              }
+              validation: {
+                properties: {
+                  allowedAudiences: allowedAudiences
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }  
 }

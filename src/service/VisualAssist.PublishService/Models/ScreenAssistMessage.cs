@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VisualAssist.UserInterface.Models
+namespace VisualAssist.PublishService.Models
 {
     public class ScreenAssistMessage
     {

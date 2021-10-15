@@ -2,15 +2,11 @@
 using Microsoft.Identity.Client;
 using Polly;
 using Polly.Extensions.Http;
-using Refit;
 using System;
 using System.Configuration;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using System.Windows;
-using VisualAssist.UserInterface.Handlers;
-using VisualAssist.UserInterface.Interfaces;
 
 namespace VisualAssist.UserInterface
 {
@@ -40,23 +36,23 @@ namespace VisualAssist.UserInterface
                 .WaitAndRetryAsync(3, retryAttempts => TimeSpan.FromMilliseconds(Math.Pow(2, retryAttempts)));
 
             var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<AuthenticationMessageHandler>();
-            serviceCollection.AddRefitClient<IVisualAssistService>((sp) =>
-            {
-                var jsonSerializerOptions = new JsonSerializerOptions()
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    WriteIndented = true,
-                };
+            //serviceCollection.AddSingleton<AuthenticationMessageHandler>();
+            //serviceCollection.AddRefitClient<IVisualAssistService>((sp) =>
+            //{
+            //    var jsonSerializerOptions = new JsonSerializerOptions()
+            //    {
+            //        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            //        WriteIndented = true,
+            //    };
 
-                return new RefitSettings()
-                {
-                    ContentSerializer = new SystemTextJsonContentSerializer(jsonSerializerOptions),
-                };
-            })
-                .AddPolicyHandler(asyncRetryPolicy)
-                .AddHttpMessageHandler<AuthenticationMessageHandler>()
-                .ConfigureHttpClient(http => http.BaseAddress = new Uri(ConfigurationManager.AppSettings["FunctionAppUrl"]));
+            //    return new RefitSettings()
+            //    {
+            //        ContentSerializer = new SystemTextJsonContentSerializer(jsonSerializerOptions),
+            //    };
+            //})
+            //    .AddPolicyHandler(asyncRetryPolicy)
+            //    .AddHttpMessageHandler<AuthenticationMessageHandler>()
+            //    .ConfigureHttpClient(http => http.BaseAddress = new Uri(ConfigurationManager.AppSettings["FunctionAppUrl"]));
             ServiceProvider = serviceCollection.BuildServiceProvider();
         }
         private static void Log(LogLevel level, string message, bool containsPii)

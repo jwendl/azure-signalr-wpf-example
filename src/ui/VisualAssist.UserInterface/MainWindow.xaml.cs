@@ -1,6 +1,5 @@
 ﻿using EmbeddedMsalCustomWebUi.Wpf;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensibility;
 using System;
@@ -10,7 +9,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using VisualAssist.UserInterface.Interfaces;
 using VisualAssist.UserInterface.Models;
 
 namespace VisualAssist.UserInterface
@@ -124,6 +122,8 @@ namespace VisualAssist.UserInterface
 
         private async void SignalRConnectButton_Click(object sender, RoutedEventArgs e)
         {
+            SignalRConnectButton.IsEnabled = false;
+
             string[] scopes = new string[] { "" };
 
             // This shows simplest version assuming there will not be errors 
@@ -134,7 +134,8 @@ namespace VisualAssist.UserInterface
                 .AcquireTokenSilent(scopes, accountList.FirstOrDefault())
                 .ExecuteAsync();
 
-            var objectId = authResult.ClaimsPrincipal.Claims.Where(c => c.Type == "oid").First().Value;
+            ResultText.Text += $"Connecting to Signal R Service{Environment.NewLine}";
+            var username = authResult.ClaimsPrincipal.Claims.Where(c => c.Type == "preferred_username").First().Value;
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(ConfigurationManager.AppSettings["SignalRHubUrl"], options =>
                 {
@@ -142,15 +143,15 @@ namespace VisualAssist.UserInterface
                 })
                 .Build();
 
-            _hubConnection.On<string, ScreenAssistMessage>("sendMessageEvent", (user, sendMessageResponse) =>
+            _hubConnection.On<string, ScreenAssistMessage>("sendMessage", (user, sendMessageResponse) =>
             {
                 ResultText.Text += $"{sendMessageResponse.MessageDateTime}: {sendMessageResponse.Message}{Environment.NewLine}";
             });
 
             await _hubConnection.StartAsync();
 
-            var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
-            await visualAssistService.AddToGroupAsync(_groupName);
+            ResultText.Text += $"Adding user to group named {_groupName}{Environment.NewLine}";
+            await _hubConnection.InvokeAsync("joinUserToGroup", username, _groupName);
 
             _dispatcherTimer = new DispatcherTimer();
             _dispatcherTimer.Tick += DispatcherTimer_Tick;
@@ -176,12 +177,13 @@ namespace VisualAssist.UserInterface
 
         private async void DispatcherTimer_Tick(object sender, EventArgs e)
         {
-            ResultText.Text += $"Sent message{Environment.NewLine}";
+            ResultText.Text += $"Sending message to group{Environment.NewLine}";
 
             var accounts = await App.PublicClientApp.GetAccountsAsync();
             var account = accounts.First();
-            await _hubConnection.InvokeAsync<ISendMessageHub>("SendMessage", account.Username, new ScreenAssistMessage()
+            await _hubConnection.InvokeAsync("sendToGroup", _groupName, new ScreenAssistMessage()
             {
+                SentBy = account.Username,
                 MessageDateTime = DateTime.UtcNow,
                 Message = "Test message",
             });
