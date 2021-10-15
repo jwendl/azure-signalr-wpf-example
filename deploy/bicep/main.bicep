@@ -1,6 +1,10 @@
 param resourcePrefix string
 param resourcePostfix string
 
+param clientId string
+param issuer string
+param allowedAudiences array
+
 param resourceGroupLocation string = resourceGroup().location
 
 resource userManagedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
@@ -46,9 +50,6 @@ resource functionAppInsights 'Microsoft.Insights/components@2020-02-02' = {
     publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
   }
-  tags: {
-    'hidden-link:/subscriptions/${subscription().id}/resourceGroups/${resourceGroup().name}/providers/Microsoft.Web/sites/${functionApplication.name}': 'Resource'
-  }
 }
 
 resource functionServerFarm 'Microsoft.Web/serverfarms@2021-01-15' = {
@@ -71,10 +72,54 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
     siteConfig: {
       appSettings: [
         {
-          name: 'Azure__SignalR__ConnectionString'
+          name: 'AzureWebJobsStorage'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${appStorage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${listKeys(appStorage.id, appStorage.apiVersion).keys[0].value}'
+        }
+        {
+          name: 'AzureSignalRConnectionString'
           value: 'Endpoint=https://${publishService.properties.hostName}.service.signalr.net;AuthType=aad;ClientId=${userManagedIdentity.properties.clientId};Version=1.0;'
+        }
+        {
+          'name': 'FUNCTIONS_EXTENSION_VERSION'
+          'value': '~3'
+        }
+        {
+          'name': 'FUNCTIONS_WORKER_RUNTIME'
+          'value': 'dotnet'
+        }
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${appStorage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${listKeys(appStorage.id, appStorage.apiVersion).keys[0].value}'
+        }
+        {
+          name: 'WEBSITE_CONTENTSHARE'
+          value: 'visualassistapp'
+        }
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
+        }
+        {
+          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+          value: functionAppInsights.properties.InstrumentationKey
         }
       ]
     }
   }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userManagedIdentity.id}': {}
+    }
+  }
+  resource functionAuthSettings 'config' = {
+    name: 'authsettings'
+    properties: {
+      allowedAudiences: allowedAudiences
+      clientId: clientId
+      issuer: issuer
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      validateIssuer: true
+    }
+  }  
 }

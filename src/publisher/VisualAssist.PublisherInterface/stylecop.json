@@ -1,9 +1,0 @@
-{
-  "settings": {
-    "orderingRules": {
-      "systemUsingDirectivesFirst": true,
-      "usingDirectivesPlacement": "outsideNamespace",
-      "blankLinesBetweenUsingGroups": "omit"
-    }
-  }
-}

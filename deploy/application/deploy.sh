@@ -28,10 +28,8 @@ fi
 resourcePrefix=$ResourcePrefix
 resourcePostfix=$ResourcePostfix
 
-az ad app create --display-name "${resourcePrefix}visualassist${resourcePostfix}" --available-to-other-tenants true --native-app true
+pushd ../../src/service/VisualAssist.PublishService
 
-appId=$(az ad app list --display-name "${resourcePrefix}visualassist${resourcePostfix}" --query "[0].appId" --output tsv)
-az ad app credential reset --id $appId --append
+func azure functionapp publish "${resourcePrefix}afa${resourcePostfix}"
 
-az ad app list --display-name "${resourcePrefix}visualassist${resourcePostfix}" --query [].appId
-az account show --query tenantId
+popd
