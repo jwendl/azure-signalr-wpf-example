@@ -15,11 +15,28 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
   name: '${toLower(resourcePrefix)}akv${toLower(resourcePostfix)}'
   location: resourceGroupLocation
   properties: {
+    accessPolicies: [
+      {
+        objectId: userManagedIdentity.properties.principalId
+        tenantId: subscription().tenantId
+        permissions: {
+          secrets: [ 
+            'get'
+           ]
+        }
+      }
+    ]
     sku: {
       name: 'standard'
       family: 'A'
     }
-    tenantId: environment().authentication.tenant
+    tenantId: subscription().tenantId
+  }
+  resource keyVaultSecret 'secrets' = {
+    name: 'signalrkey'
+    properties: {
+      value: listKeys('${functionApplication.id}/host/default/', functionApplication.apiVersion).systemkeys.signalr_extension
+    }
   }
 }
 
@@ -35,15 +52,6 @@ resource publishService 'Microsoft.SignalRService/signalR@2021-06-01-preview' = 
     type: 'UserAssigned'
     userAssignedIdentities: {
       '${userManagedIdentity.id}': {}
-    }
-  }
-  properties: {
-    upstream: {
-      templates: [
-        {
-          urlTemplate: 'https://${resourcePrefix}afa${resourcePostfix}.azurewebsites.net/runtime/webhooks/signalr?code={@Microsoft.KeyVault(SecretUri=https://${resourcePrefix}akv${resourcePostfix}.vault.azure.net/secrets/signalrkey/)}'
-        }
-      ]
     }
   }
 }
@@ -127,7 +135,7 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
     }
   }
   identity: {
-    type: 'UserAssigned'
+    type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
       '${userManagedIdentity.id}': {}
     }
@@ -136,35 +144,36 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
     name: 'authsettingsV2'
     properties: {
       globalValidation: {
-        properties: {
-          requireAuthentication: true
-        }
+        requireAuthentication: true
+        unauthenticatedClientAction: 'Return401'
       }
       httpSettings: {
-        properties: {
-          requireHttps: true
-        }
+        requireHttps: true
       }
       identityProviders: {
-        properties: {
-          azureActiveDirectory: {
-            properties: {
-              enabled: true
-              registration: {
-                properties: {
-                  openIdIssuer: '${environment().authentication.loginEndpoint}/v2.0'
-                  clientId: clientId
-                }
-              }
-              validation: {
-                properties: {
-                  allowedAudiences: allowedAudiences
-                }
-              }
-            }
+        azureActiveDirectory: {
+          enabled: true
+          registration: {
+            clientId: clientId
+            openIdIssuer: 'https://sts.windows.net/${subscription().tenantId}/'
+          }
+          validation: {
+            allowedAudiences: allowedAudiences
           }
         }
       }
+      platform: {
+        enabled: true
+      }
     }
   }  
+}
+
+resource roleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(subscription().subscriptionId)
+  properties: {
+    principalId: functionApplication.identity.principalId
+    // Found using az role definition list --output table --query '[].{name:name, roleName:roleName, description:description}' | grep SignalR
+    roleDefinitionId: '420fcaa2-552c-430f-98ca-3264be4806c7'
+  }
 }

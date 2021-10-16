@@ -1,5 +1,6 @@
 ﻿using EmbeddedMsalCustomWebUi.Wpf;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensibility;
 using System;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using VisualAssist.UserInterface.Interfaces;
 using VisualAssist.UserInterface.Models;
 
 namespace VisualAssist.UserInterface
@@ -33,7 +35,7 @@ namespace VisualAssist.UserInterface
 
         private async void SignInButton_Click(object sender, RoutedEventArgs e)
         {
-            string[] scopes = new string[] { "user.read", "api://visualassistapp/publish" };
+            string[] scopes = new string[] { "user.read", "api://89c7d6ac-586a-4dc8-bbc3-1c8952c2f757/publish" };
 
             var app = App.PublicClientApp;
             try
@@ -137,21 +139,26 @@ namespace VisualAssist.UserInterface
             ResultText.Text += $"Connecting to Signal R Service{Environment.NewLine}";
             var username = authResult.ClaimsPrincipal.Claims.Where(c => c.Type == "preferred_username").First().Value;
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(ConfigurationManager.AppSettings["SignalRHubUrl"], options =>
+                .WithUrl(ConfigurationManager.AppSettings["SignalRNegotiateEndpoint"], options =>
                 {
                     options.AccessTokenProvider = () => Task.FromResult(authResult.AccessToken);
                 })
                 .Build();
 
-            _hubConnection.On<string, ScreenAssistMessage>("sendMessage", (user, sendMessageResponse) =>
+            _hubConnection.On<string, ScreenAssistMessageResponse>("eventListener", (user, screenAssistMessageResponse) =>
             {
-                ResultText.Text += $"{sendMessageResponse.MessageDateTime}: {sendMessageResponse.Message}{Environment.NewLine}";
+                ResultText.Text += $"Message from {screenAssistMessageResponse.SentBy} on {screenAssistMessageResponse.MessageDate}: {screenAssistMessageResponse.Message}{Environment.NewLine}";
             });
 
             await _hubConnection.StartAsync();
 
             ResultText.Text += $"Adding user to group named {_groupName}{Environment.NewLine}";
-            await _hubConnection.InvokeAsync("joinUserToGroup", username, _groupName);
+            var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
+            await visualAssistService.AddUserToGroupAsync(new AddUserToGroupRequest()
+            {
+                Username = username,
+                GroupName = _groupName,
+            });
 
             _dispatcherTimer = new DispatcherTimer();
             _dispatcherTimer.Tick += DispatcherTimer_Tick;
@@ -181,11 +188,12 @@ namespace VisualAssist.UserInterface
 
             var accounts = await App.PublicClientApp.GetAccountsAsync();
             var account = accounts.First();
-            await _hubConnection.InvokeAsync("sendToGroup", _groupName, new ScreenAssistMessage()
+
+            var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
+            await visualAssistService.SendMessageToGroupAsync(new ScreenAssistMessageRequest()
             {
-                SentBy = account.Username,
-                MessageDateTime = DateTime.UtcNow,
-                Message = "Test message",
+                GroupName = _groupName,
+                Message = "Test Message",
             });
         }
     }
