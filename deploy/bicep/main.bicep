@@ -105,7 +105,7 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
         }
         {
           name: 'AzureSignalRConnectionString'
-          value: 'Endpoint=https://${publishService.properties.hostName};AuthType=aad;ClientId=${userManagedIdentity.properties.clientId};Version=1.0;'
+          value: 'Endpoint=https://${publishService.properties.hostName};AuthType=aad;Version=1.0;'
         }
         {
           'name': 'FUNCTIONS_EXTENSION_VERSION'
@@ -169,11 +169,22 @@ resource functionApplication 'Microsoft.Web/sites@2021-01-15' = {
   }  
 }
 
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-  name: guid(subscription().subscriptionId)
+resource aadRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(resourceGroup().name, 'owner')
   properties: {
     principalId: functionApplication.identity.principalId
+    principalType: 'ServicePrincipal'
     // Found using az role definition list --output table --query '[].{name:name, roleName:roleName, description:description}' | grep SignalR
-    roleDefinitionId: '420fcaa2-552c-430f-98ca-3264be4806c7'
+    roleDefinitionId: '${subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '420fcaa2-552c-430f-98ca-3264be4806c7')}'
+  }
+}
+
+resource serviceOwnerRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(resourceGroup().name, 'owner')
+  properties: {
+    principalId: functionApplication.identity.principalId
+    principalType: 'ServicePrincipal'
+    // Found using az role definition list --output table --query '[].{name:name, roleName:roleName, description:description}' | grep SignalR
+    roleDefinitionId: '${subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7e4f1700-ea5a-4f59-8f37-079cfe29dce3')}'
   }
 }

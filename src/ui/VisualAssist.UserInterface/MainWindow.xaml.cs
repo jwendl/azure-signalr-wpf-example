@@ -35,7 +35,7 @@ namespace VisualAssist.UserInterface
 
         private async void SignInButton_Click(object sender, RoutedEventArgs e)
         {
-            string[] scopes = new string[] { "user.read", "api://89c7d6ac-586a-4dc8-bbc3-1c8952c2f757/publish" };
+            string[] scopes = new string[] { "user.read", ConfigurationManager.AppSettings["Scope"] };
 
             var app = App.PublicClientApp;
             try
@@ -138,6 +138,7 @@ namespace VisualAssist.UserInterface
 
             ResultText.Text += $"Connecting to Signal R Service{Environment.NewLine}";
             var username = authResult.ClaimsPrincipal.Claims.Where(c => c.Type == "preferred_username").First().Value;
+            var userId = authResult.ClaimsPrincipal.Claims.Where(c => c.Type == "oid").First().Value;
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(ConfigurationManager.AppSettings["SignalRNegotiateEndpoint"], options =>
                 {
@@ -145,7 +146,7 @@ namespace VisualAssist.UserInterface
                 })
                 .Build();
 
-            _hubConnection.On<string, ScreenAssistMessageResponse>("eventListener", (user, screenAssistMessageResponse) =>
+            _hubConnection.On<ScreenAssistMessageResponse>("eventListener", (screenAssistMessageResponse) =>
             {
                 ResultText.Text += $"Message from {screenAssistMessageResponse.SentBy} on {screenAssistMessageResponse.MessageDate}: {screenAssistMessageResponse.Message}{Environment.NewLine}";
             });
@@ -156,6 +157,7 @@ namespace VisualAssist.UserInterface
             var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
             await visualAssistService.AddUserToGroupAsync(new AddUserToGroupRequest()
             {
+                UserId = userId,
                 Username = username,
                 GroupName = _groupName,
             });

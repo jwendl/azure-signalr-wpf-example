@@ -43,13 +43,18 @@ namespace VisualAssist.PublishService
         }
 
         [FunctionName(nameof(AddUserToGroup))]
-        public async Task AddUserToGroup([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "addUserToGroup")] HttpRequest req, [SignalR(HubName = "visualassist")] IAsyncCollector<SignalRMessage> signalRMessages)
+        public async Task AddUserToGroup([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "addUserToGroup")] HttpRequest req, [SignalR(HubName = "visualassist")] IAsyncCollector<SignalRGroupAction> signalRGroupActions)
         {
             using var streamReader = new StreamReader(req.Body);
             var json = await streamReader.ReadToEndAsync();
             var addUserToGroupRequest = JsonSerializer.Deserialize<AddUserToGroupRequest>(json);
 
-            await UserGroups.AddToGroupAsync(addUserToGroupRequest.Username, addUserToGroupRequest.GroupName);
+            await signalRGroupActions.AddAsync(new SignalRGroupAction()
+            {
+                UserId = addUserToGroupRequest.UserId,
+                Action = GroupAction.Add,
+                GroupName = addUserToGroupRequest.GroupName,
+            });
         }
     }
 }
