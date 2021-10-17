@@ -26,11 +26,13 @@ namespace VisualAssist.UserInterface
     {
         private HubConnection _hubConnection;
         private DispatcherTimer _dispatcherTimer;
+        private IVisualAssistService _visualAssistService;
         private string _groupName = "testGroup";
 
         public MainWindow()
         {
             InitializeComponent();
+            _visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
         }
 
         private async void SignInButton_Click(object sender, RoutedEventArgs e)
@@ -154,8 +156,7 @@ namespace VisualAssist.UserInterface
             await _hubConnection.StartAsync();
 
             ResultText.Text += $"Adding user to group named {_groupName}{Environment.NewLine}";
-            var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
-            await visualAssistService.AddUserToGroupAsync(new AddUserToGroupRequest()
+            await _visualAssistService.AddUserToGroupAsync(new AddUserToGroupRequest()
             {
                 UserId = userId,
                 Username = username,
@@ -188,11 +189,7 @@ namespace VisualAssist.UserInterface
         {
             ResultText.Text += $"Sending message to group{Environment.NewLine}";
 
-            var accounts = await App.PublicClientApp.GetAccountsAsync();
-            var account = accounts.First();
-
-            var visualAssistService = App.ServiceProvider.GetRequiredService<IVisualAssistService>();
-            await visualAssistService.SendMessageToGroupAsync(new ScreenAssistMessageRequest()
+            await _visualAssistService.SendMessageToGroupAsync(new ScreenAssistMessageRequest()
             {
                 GroupName = _groupName,
                 Message = "Test Message",
