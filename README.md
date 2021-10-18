@@ -28,7 +28,7 @@ The intent of this repository is to serve as an example of how to set this up in
     1. Go ahead and fill the required fields with anything you want and then ensure the state is Enabled
     1. After that click on Add scope
 1. Navigate into the [repo-root-folder]/deploy/bicep folder
-1. Run the following shell script in bash ``` ./deploy-azure.sh -p [prefix] -s [postfix] -g [resource-group-name] -l [location] -a [valid-audience] where the values are in the [table below](#bicep-variables)
+1. Run the following shell script in bash ``` ./deploy-azure.sh -p [prefix] -s [postfix] -g [resource-group-name] -l [location] -a [valid-audience] ``` where the values are in the [table below](#bicep-variables)
 1. Navigate into the [repo-root-folder]/deploy/application folder
 1. Run the following shell script in bash ``` ./deploy-application.sh -p [prefix] -s [postfix] ``` where [prefix] is the resource prefix and [postfix] is the resource postfix
 1. Double check that all the resources are deployed to Azure, it should be a SignalR Service, Function Application and Application Insights instance
